@@ -1,5 +1,4 @@
 #include "object_visualizer/object_visualizer.h"
-
 namespace kitti_visualizer {
 
 ObjectVisualizer::ObjectVisualizer(ros::NodeHandle nh, ros::NodeHandle pnh)
@@ -8,6 +7,7 @@ ObjectVisualizer::ObjectVisualizer(ros::NodeHandle nh, ros::NodeHandle pnh)
   pnh_.param<std::string>("dataset", dataset_, "");
   pnh_.param<int>("frame_size", frame_size_, 0);
   pnh_.param<int>("current_frame", current_frame_, 0);
+  pnh_.param<bool>("save_image", save_image_, false);
 
   // Judge whether the files number are valid
   AssertFilesNumber();
@@ -24,6 +24,9 @@ ObjectVisualizer::ObjectVisualizer(ros::NodeHandle nh, ros::NodeHandle pnh)
       nh_.advertise<sensor_msgs::Image>("kitti_visualizer/object/image", 2);
   pub_bounding_boxes_ = nh_.advertise<jsk_recognition_msgs::BoundingBoxArray>(
       "kitti_visualizer/object/bounding_boxes", 2);
+
+  if(save_image_)
+  SaveVisualizerImage();
 }
 
 void ObjectVisualizer::Visualizer() {
@@ -40,6 +43,38 @@ void ObjectVisualizer::Visualizer() {
 
   // Visualize 3D bounding boxes
   BoundingBoxesVisualizer(file_prefix.str(), pub_bounding_boxes_);
+}
+
+void ObjectVisualizer::SaveVisualizerImage() {
+    std::string image_file_name;
+    std::string image_save_name;
+    cv::Mat raw_image;
+    // Get current file name
+    std::string iamge_path = data_path_ + dataset_ + "/visualize_image/";
+    std::string command = "mkdir -p " + iamge_path;
+    std::system(command.c_str());
+
+    for(int i=0;i<frame_size_;i++) {
+        std::ostringstream file_prefix;
+        file_prefix << std::setfill('0') << std::setw(6) << i;
+        ROS_INFO("Visualizing frame %s ...", file_prefix.str().c_str());
+
+        // Read image
+        image_file_name =
+                data_path_ + dataset_ + "/image_2/" + file_prefix.str() + ".png";
+        image_save_name =
+                data_path_ + dataset_ + "/visualize_image/" + file_prefix.str() + ".png";
+        raw_image = cv::imread(image_file_name.c_str());
+
+        // Draw 2D bounding boxes in image
+        Draw2DBoundingBoxes(file_prefix.str(), raw_image);
+
+        //Save image
+        cv::imwrite(image_save_name, raw_image);
+        ROS_INFO("Save Image %s ...", file_prefix.str().c_str());
+    }
+
+
 }
 
 void ObjectVisualizer::PointCloudVisualizer(const std::string& file_prefix,
@@ -80,9 +115,20 @@ void ObjectVisualizer::Draw2DBoundingBoxes(const std::string& file_prefix,
 
   // Draw bounding boxes in image
   for (const auto detection : detections) {
+      cv::Scalar color;
+      if(detection.back() == 1.0) {
+          color = cv::Scalar(255, 0, 0);//"Car"
+      }else if(detection.back() == 2.0) {
+          color = cv::Scalar(0, 255, 0);//"Pedestrian"
+      }else if(detection.back() == 3.0) {
+          color = cv::Scalar(0, 0, 255);//"Bimo"
+      }else if(detection.back() == 4.0) {
+          color = cv::Scalar(0, 0, 0);//"None"
+      }
     cv::rectangle(raw_image, cv::Point(detection[3], detection[4]),
-                  cv::Point(detection[5], detection[6]), cv::Scalar(0, 255, 0),
+                  cv::Point(detection[5], detection[6]), color,
                   2, 8, 0);
+
   }
 }
 
@@ -125,12 +171,12 @@ jsk_recognition_msgs::BoundingBoxArray ObjectVisualizer::TransformBoundingBoxes(
     bounding_box.pose.position.z = velo_position(2) + detection[7] / 2.0;
     // Bounding box orientation
     tf::Quaternion bounding_box_quat =
-        tf::createQuaternionFromRPY(0.0, 0.0, 0.0 - detection[13]);
+        tf::createQuaternionFromRPY(0.0 - detection[13], 0.0, 0.0 );
     tf::quaternionTFToMsg(bounding_box_quat, bounding_box.pose.orientation);
     // Bounding box dimensions
-    bounding_box.dimensions.x = detection[8];
+    bounding_box.dimensions.x = detection[7];
     bounding_box.dimensions.y = detection[9];
-    bounding_box.dimensions.z = detection[7];
+    bounding_box.dimensions.z = detection[8];
     // Bounding box header
     bounding_box.header.stamp = ros::Time::now();
     bounding_box.header.frame_id = "base_link";
@@ -166,12 +212,22 @@ std::vector<std::vector<float>> ObjectVisualizer::ParseDetections(
     // Parse object type
     std::string object_type;
     getline(line_ss, object_type, ' ');
-    if (object_type == "DontCare") continue;
+    if (object_type != "Car" && object_type != "Pedestrian" && object_type != "Vehicles" && object_type != "Bimo") continue;
+
     // Parse object data
     std::vector<float> detection;
     std::string str;
     while (getline(line_ss, str, ' ')) {
       detection.push_back(boost::lexical_cast<float>(str));
+    }
+    if(object_type == "Car") {
+        detection.push_back(1.0);
+    }else if(object_type == "Pedestrian") {
+        detection.push_back(2.0);
+    }else if(object_type == "Bimo") {
+        detection.push_back(3.0);
+    }else if(object_type == "Walkers") {
+        detection.push_back(4.0);
     }
     detections.push_back(detection);
   }
@@ -199,6 +255,8 @@ void ObjectVisualizer::CommandButtonCallback(
 }
 
 void ObjectVisualizer::AssertFilesNumber() {
+  if(frame_size_<=0)
+  frame_size_ =  FolderFilesNumber(data_path_ + dataset_ + "/velodyne");
   // Assert velodyne files numbers
   ROS_ASSERT(FolderFilesNumber(data_path_ + dataset_ + "/velodyne") ==
              frame_size_);
@@ -220,5 +278,6 @@ void ObjectVisualizer::AssertFilesNumber() {
     ROS_ERROR("Dataset input error: %s", dataset_.c_str());
     ros::shutdown();
   }
+    ROS_INFO("%d data input success from: %s",frame_size_, dataset_.c_str());
 }
 }

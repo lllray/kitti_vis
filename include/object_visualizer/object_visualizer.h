@@ -67,6 +67,8 @@ class ObjectVisualizer {
   // Judge whether the files number are valid
   void AssertFilesNumber();
 
+  void SaveVisualizerImage();
+
  private:
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
@@ -86,6 +88,7 @@ class ObjectVisualizer {
   // Frame
   int frame_size_;
   int current_frame_;
+  bool save_image_;
 };
 
 }  // namespace kitti_visualizer

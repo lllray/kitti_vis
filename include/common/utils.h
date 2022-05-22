@@ -6,6 +6,7 @@
 #include <dirent.h>
 #include <fstream>
 #include <iostream>
+#include <stdlib.h>
 
 #include <pcl_ros/point_cloud.h>
 
