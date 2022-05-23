@@ -140,12 +140,14 @@ void ObjectVisualizer::labelSave() {
 
     Eigen::Matrix4d trans_kitti_to_livox;
     trans_kitti_to_livox <<
-                         0.0, 0.0, -1.0, 0.0,
+            0.0, 0.0, -1.0, 0.0,
             0.0, 1.0, 0.0, 0.0,
             -1.0, 0.0, 0.0, 0.0,
             0.0, 0.0, 0.0, 1.0;
     Eigen::Matrix4d  transform = trans_cam_to_rect*trans_velo_to_cam*trans_kitti_to_livox.inverse() * trans_velo_to_cam.inverse() *
     trans_cam_to_rect.inverse();
+
+    std::cout<<"transform:"<<transform<<std::endl;
     for (int i=0;i<frame_size_ ;i++) {
         float height_offset = 0;
         if(i<2500){
@@ -165,7 +167,7 @@ void ObjectVisualizer::labelSave() {
                 std::cout << "Couldn't open " << file_out << std::endl;
                 return;
             }
-            out << std::endl;
+            //out << std::endl;
         }
 
         for (std::vector<float> detection : detections) {
