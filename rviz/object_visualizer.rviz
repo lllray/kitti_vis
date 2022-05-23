@@ -26,7 +26,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: PointCloud2
   - Class: kitti_visualizer/Button
     Name: Button
   - Class: rviz/Selection
@@ -48,10 +48,10 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 30.569421768188477
-        Min Value: 0
-        Value: true
-      Axis: X
+        Max Value: -25
+        Min Value: -30.322948455810547
+        Value: false
+      Axis: Z
       Channel Name: intensity
       Class: rviz/PointCloud2
       Color: 255; 255; 255
@@ -96,9 +96,27 @@ Visualization Manager:
       alpha: 0.800000011920929
       color: 25; 255; 0
       coloring: Auto
-      line width: 0.10000000149011612
+      line width: 0.20000000298023224
       only edge: true
       show coords: false
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Line Style:
+        Line Width: 0.029999999329447746
+        Value: Lines
+      Name: Grid
+      Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Plane: XY
+      Plane Cell Count: 10
+      Reference Frame: <Fixed Frame>
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -127,25 +145,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 25.650005340576172
+      Distance: 49.764522552490234
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 26.48746681213379
-        Y: -0.28927141427993774
-        Z: -9.188393592834473
+        X: 9.647316932678223
+        Y: -8.138010025024414
+        Z: -36.01148223876953
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: -1.0497959852218628
+      Pitch: 1.2852040529251099
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.278181791305542
+      Yaw: 4.0981879234313965
     Saved: ~
 Window Geometry:
   Button:

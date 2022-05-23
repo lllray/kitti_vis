@@ -27,6 +27,8 @@
 #include "common/transform_utils.h"
 #include "common/utils.h"
 
+#include <pcl_ros/transforms.h>
+
 namespace kitti_visualizer {
 
 class ObjectVisualizer {
@@ -40,7 +42,8 @@ class ObjectVisualizer {
   // Visualize point cloud
   void PointCloudVisualizer(const std::string& file_prefix,
                             const ros::Publisher publisher);
-
+  void PointCloudSave();
+  void labelSave();
   // Visualize image
   void ImageVisualizer(const std::string& file_prefix,
                        const ros::Publisher publisher);
