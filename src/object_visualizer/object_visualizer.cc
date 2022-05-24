@@ -15,9 +15,9 @@ ObjectVisualizer::ObjectVisualizer(ros::NodeHandle nh, ros::NodeHandle pnh)
   AssertFilesNumber();
 
   // Subscriber
-  sub_command_button_ =
-      nh_.subscribe("/kitti_visualizer/command_button", 2,
-                    &ObjectVisualizer::CommandButtonCallback, this);
+//  sub_command_button_ =
+//      nh_.subscribe("/kitti_visualizer/command_button", 2,
+//                    &ObjectVisualizer::CommandButtonCallback, this);
 
   // Publisher
   pub_point_cloud_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZI>>(
@@ -31,7 +31,7 @@ ObjectVisualizer::ObjectVisualizer(ros::NodeHandle nh, ros::NodeHandle pnh)
   SaveVisualizerImage();
 
 //  PointCloudSave();
-//  labelSave();
+  labelSave();
 }
 
 void ObjectVisualizer::Visualizer() {
@@ -137,7 +137,6 @@ void ObjectVisualizer::labelSave() {
     ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam:", trans_velo_to_cam);
     Eigen::MatrixXd trans_cam_to_rect = Eigen::MatrixXd::Identity(4, 4);
     ReadCalibMatrix(calib_file_name, "R0_rect:", trans_cam_to_rect);
-
     Eigen::Matrix4d trans_kitti_to_livox;
     trans_kitti_to_livox <<
             0.0, 0.0, -1.0, 0.0,
@@ -147,6 +146,16 @@ void ObjectVisualizer::labelSave() {
     Eigen::Matrix4d  transform = trans_cam_to_rect*trans_velo_to_cam*trans_kitti_to_livox.inverse() * trans_velo_to_cam.inverse() *
     trans_cam_to_rect.inverse();
 
+    std::string file1 =
+            data_path_ + dataset_ + "/train.txt";
+    std::string file2 =
+            data_path_ + dataset_ + "/val.txt";
+    std::string file3 =
+            data_path_ + dataset_ + "/trainval.txt";
+    std::ofstream out1(file1.c_str(), std::ios::out | std::ios::app);
+    std::ofstream out2(file2.c_str(), std::ios::out | std::ios::app);
+    std::ofstream out3(file3.c_str(), std::ios::out | std::ios::app);
+    int id=0;
     std::cout<<"transform:"<<transform<<std::endl;
     for (int i=0;i<frame_size_ ;i++) {
         float height_offset = 0;
@@ -167,9 +176,15 @@ void ObjectVisualizer::labelSave() {
                 std::cout << "Couldn't open " << file_out << std::endl;
                 return;
             }
+            continue;
             //out << std::endl;
         }
-
+        if(id++%2==0){
+            out1 << file_prefix.str()<<std::endl;
+        }else{
+            out2 << file_prefix.str()<<std::endl;
+        }
+        out3 << file_prefix.str()<<std::endl;
         for (std::vector<float> detection : detections) {
             jsk_recognition_msgs::BoundingBox bounding_box;
             // Bounding box position
@@ -214,6 +229,7 @@ void ObjectVisualizer::labelSave() {
                     << detection[8] << " " << detection[9] << " " << rect_position[0] << " "
                     << rect_position[1] << " " << rect_position[2] << " " << detection[13] << std::endl;
             }
+
         }
     }
 }
