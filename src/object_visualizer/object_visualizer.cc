@@ -15,9 +15,9 @@ ObjectVisualizer::ObjectVisualizer(ros::NodeHandle nh, ros::NodeHandle pnh)
   AssertFilesNumber();
 
   // Subscriber
-//  sub_command_button_ =
-//      nh_.subscribe("/kitti_visualizer/command_button", 2,
-//                    &ObjectVisualizer::CommandButtonCallback, this);
+  sub_command_button_ =
+      nh_.subscribe("/kitti_visualizer/command_button", 2,
+                    &ObjectVisualizer::CommandButtonCallback, this);
 
   // Publisher
   pub_point_cloud_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZI>>(
@@ -31,7 +31,7 @@ ObjectVisualizer::ObjectVisualizer(ros::NodeHandle nh, ros::NodeHandle pnh)
   SaveVisualizerImage();
 
 //  PointCloudSave();
-  labelSave();
+//  labelSave();
 }
 
 void ObjectVisualizer::Visualizer() {
