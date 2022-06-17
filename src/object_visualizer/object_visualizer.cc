@@ -9,7 +9,9 @@ ObjectVisualizer::ObjectVisualizer(ros::NodeHandle nh, ros::NodeHandle pnh)
   pnh_.param<std::string>("dataset", dataset_, "");
   pnh_.param<int>("frame_size", frame_size_, 0);
   pnh_.param<int>("current_frame", current_frame_, 0);
+  pnh_.param<bool>("show_depth_cloud", show_depth_cloud_, false);
   pnh_.param<bool>("save_image", save_image_, false);
+  pnh_.param<bool>("save_stereo_cloud", save_stereo_cloud_, false);
 
   // Judge whether the files number are valid
   AssertFilesNumber();
@@ -24,14 +26,24 @@ ObjectVisualizer::ObjectVisualizer(ros::NodeHandle nh, ros::NodeHandle pnh)
       "kitti_visualizer/object/point_cloud", 2);
   pub_image_ =
       nh_.advertise<sensor_msgs::Image>("kitti_visualizer/object/image", 2);
+  pub_depth_cloud_ =
+      nh_.advertise<pcl::PointCloud<pcl::PointXYZRGB>>("kitti_visualizer/object/depth_cloud", 2);
+
+//  pub_depth_cloud_ =
+//          nh_.advertise<sensor_msgs::Image>("kitti_visualizer/object/depth", 2);
+
   pub_bounding_boxes_ = nh_.advertise<jsk_recognition_msgs::BoundingBoxArray>(
       "kitti_visualizer/object/bounding_boxes", 2);
 
   if(save_image_)
   SaveVisualizerImage();
 
+  if(save_stereo_cloud_)
+  StereoCloudSave();
+
 //  PointCloudSave();
 //  labelSave();
+
 }
 
 void ObjectVisualizer::Visualizer() {
@@ -45,6 +57,9 @@ void ObjectVisualizer::Visualizer() {
 
   // Visualize image
   ImageVisualizer(file_prefix.str(), pub_image_);
+
+  if(show_depth_cloud_)
+  DepthImageVisualizer(file_prefix.str(), pub_depth_cloud_);
 
   // Visualize 3D bounding boxes
   BoundingBoxesVisualizer(file_prefix.str(), pub_bounding_boxes_);
@@ -234,6 +249,94 @@ void ObjectVisualizer::labelSave() {
     }
 }
 
+void ObjectVisualizer::StereoCloudSave(){
+    float intensity = 0.f;
+
+    std::string command;
+    command = "mkdir -p " + data_path_ + dataset_ + "/stereo_cloud/";
+    system(command.c_str());
+    for (int i=0;i<frame_size_;i++) {
+        // Read transform matrixs from calib file
+        std::ostringstream file_prefix;
+        file_prefix << std::setfill('0') << std::setw(6) << i;
+        ROS_INFO("save stereo cloud frame %s", file_prefix.str().c_str());
+        std::string calib_file_name =
+                data_path_ + dataset_ + "/calib/" + file_prefix.str() + ".txt";
+        Eigen::MatrixXd trans_velo_to_cam = Eigen::MatrixXd::Identity(4, 4);
+        ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam:", trans_velo_to_cam);
+        Eigen::MatrixXd trans_cam_to_rect = Eigen::MatrixXd::Identity(4, 4);
+        ReadCalibMatrix(calib_file_name, "R0_rect:", trans_cam_to_rect);
+        Eigen::MatrixXd trans_bev_to_ground = Eigen::MatrixXd::Identity(4, 4);
+        ReadCalibMatrix(calib_file_name, "TR_bev_to_ground:", trans_bev_to_ground);
+        Eigen::MatrixXd P2 = Eigen::MatrixXd::Identity(3, 4);
+        ReadCalibMatrix(calib_file_name, "P2:", P2);
+        const float focus = P2(0,0);
+        const float cx = P2(0,2);
+        const float cy = P2(1,2);
+        const float fb = 0.1 * focus;
+
+
+        Eigen::MatrixXd transform = trans_bev_to_ground * trans_velo_to_cam.inverse() *
+                                    trans_cam_to_rect.inverse();
+
+        // Read image
+        // Read image
+        std::string image_file_name =
+                data_path_ + dataset_ + "/stereo_depth/" + file_prefix.str() + ".tiff";
+        std::string left_file_name =
+                data_path_ + dataset_ + "/image_2/" + file_prefix.str() + ".png";
+        std::cout<<"load:"<<image_file_name<<std::endl;
+        std::cout<<"load:"<<left_file_name<<std::endl;
+        cv::Mat raw_image = cv::imread(image_file_name.c_str(),cv::IMREAD_UNCHANGED);
+        cv::Mat left_image = cv::imread(left_file_name.c_str());
+        if(raw_image.empty()){
+            std::cout<<"depth image is empty!"<<std::endl;
+            return;
+        }
+        if(left_image.empty()){
+            std::cout<<"left image is empty!"<<std::endl;
+            return;
+        }
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr raw_cloud(
+                new pcl::PointCloud<pcl::PointXYZRGB>);
+        pcl::PointXYZRGB target_pt;
+        float dsp_val;
+        cv::Vec3i bgr;
+        for (int v = 0; v < raw_image.rows; v ++) {
+            for (int u = 0; u < raw_image.cols; u ++) {
+                dsp_val = raw_image.at<float>(v, u);
+                bgr = left_image.at<cv::Vec3b>(v,u);
+                target_pt.z = fb/dsp_val;
+                if ( target_pt.z > 0) {
+                    target_pt.x = (u - cx)*target_pt.z/focus;
+                    target_pt.y = (v - cy)*target_pt.z/focus;
+                    target_pt.b = bgr.val[0];
+                    target_pt.g = bgr.val[1];
+                    target_pt.r = bgr.val[2];
+                    raw_cloud->push_back(target_pt);
+                }
+            }
+        }
+        pcl::transformPointCloud(*raw_cloud, *raw_cloud, transform.cast <float>());
+
+        std::string cloud_file_out =
+                data_path_ + dataset_ + "/stereo_cloud/" + file_prefix.str() + ".bin";
+        //Create & write .bin file
+        std::ofstream out(cloud_file_out.c_str(), std::ios::out | std::ios::binary | std::ios::app);
+        if (!out.good()) {
+            std::cout << "Couldn't open " << cloud_file_out << std::endl;
+            return;
+        }
+
+        for (size_t i = 0; i < raw_cloud->points.size(); ++i) {
+            out.write((char *) &raw_cloud->points[i].x, 3 * sizeof(float));
+            out.write((char *) &intensity, sizeof(float));
+            out.write((char *) &raw_cloud->points[i].rgb, sizeof(float));
+        }
+        out.close();
+    }
+}
+
 void ObjectVisualizer::PointCloudVisualizer(const std::string& file_prefix,
                                             const ros::Publisher publisher) {
   // Read point cloud
@@ -262,6 +365,75 @@ void ObjectVisualizer::ImageVisualizer(const std::string& file_prefix,
       cv_bridge::CvImage(std_msgs::Header(), "bgr8", raw_image).toImageMsg();
   raw_image_msg->header.frame_id = "base_link";
   publisher.publish(raw_image_msg);
+}
+
+void ObjectVisualizer::DepthImageVisualizer(const std::string& file_prefix,
+                                           const ros::Publisher publisher) {
+    // Read transform matrixs from calib file
+    std::string calib_file_name =
+            data_path_ + dataset_ + "/calib/" + file_prefix + ".txt";
+    Eigen::MatrixXd trans_velo_to_cam = Eigen::MatrixXd::Identity(4, 4);
+    ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam:", trans_velo_to_cam);
+    Eigen::MatrixXd trans_cam_to_rect = Eigen::MatrixXd::Identity(4, 4);
+    ReadCalibMatrix(calib_file_name, "R0_rect:", trans_cam_to_rect);
+    Eigen::MatrixXd trans_bev_to_ground = Eigen::MatrixXd::Identity(4, 4);
+    ReadCalibMatrix(calib_file_name, "TR_bev_to_ground:", trans_bev_to_ground);
+    Eigen::MatrixXd P2 = Eigen::MatrixXd::Identity(3, 4);
+    ReadCalibMatrix(calib_file_name, "P2:", P2);
+    const float focus = P2(0,0);
+    const float cx = P2(0,2);
+    const float cy = P2(1,2);
+    const float fb = 0.1 * focus;
+
+
+    Eigen::MatrixXd transform = trans_bev_to_ground * trans_velo_to_cam.inverse() *
+                                    trans_cam_to_rect.inverse();
+
+    // Read image
+    std::string image_file_name =
+            data_path_ + dataset_ + "/stereo_depth/" + file_prefix + ".tiff";
+    std::string left_file_name =
+            data_path_ + dataset_ + "/image_2/" + file_prefix + ".png";
+    std::cout<<"load:"<<image_file_name<<std::endl;
+    std::cout<<"load:"<<left_file_name<<std::endl;
+    cv::Mat raw_image = cv::imread(image_file_name.c_str(),cv::IMREAD_UNCHANGED);
+    cv::Mat left_image = cv::imread(left_file_name.c_str());
+    if(raw_image.empty()){
+        std::cout<<"depth image is empty!"<<std::endl;
+        return;
+    }
+    if(left_image.empty()){
+        std::cout<<"left image is empty!"<<std::endl;
+        return;
+    }
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr raw_cloud(
+            new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::PointXYZRGB target_pt;
+    float dsp_val;
+    cv::Vec3i bgr;
+    for (int v = 0; v < raw_image.rows; v +=2) {
+        for (int u = 0; u < raw_image.cols; u +=2) {
+            dsp_val = raw_image.at<float>(v, u);
+            bgr = left_image.at<cv::Vec3b>(v,u);
+            target_pt.z = fb/dsp_val;
+            if ( target_pt.z > 0) {
+                target_pt.x = (u - cx)*target_pt.z/focus;
+                target_pt.y = (v - cy)*target_pt.z/focus;
+                target_pt.b = bgr.val[0];
+                target_pt.g = bgr.val[1];
+                target_pt.r = bgr.val[2];
+                raw_cloud->push_back(target_pt);
+            }
+        }
+    }
+    pcl::transformPointCloud(*raw_cloud, *raw_cloud, transform.cast <float>());
+    raw_cloud->header.frame_id = "base_link";
+    publisher.publish(raw_cloud);
+    // Publish image
+//    sensor_msgs::ImagePtr raw_image_msg =
+//            cv_bridge::CvImage(std_msgs::Header(), "mono16", raw_image).toImageMsg();
+//    raw_image_msg->header.frame_id = "base_link";
+//    publisher.publish(raw_image_msg);
 }
 
 void ObjectVisualizer::Draw2DBoundingBoxes(const std::string& file_prefix,

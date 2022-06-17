@@ -154,7 +154,7 @@ static void ReadCalibMatrix(const std::string &file_path,
         }
         trans_matrix(3, 3) = 1.0;
         return;
-      } else if (matrix_name == "Tr_cam_to_road:") {
+      } else if (matrix_name == "TR_bev_to_ground:") {
         trans_matrix = Eigen::MatrixXd::Zero(4, 4);
         float temp_float;
         for (int i = 0; i < 3; ++i) {

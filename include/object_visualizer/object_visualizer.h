@@ -28,7 +28,7 @@
 #include "common/utils.h"
 
 #include <pcl_ros/transforms.h>
-
+#include <pcl/common/transforms.h>
 namespace kitti_visualizer {
 
 class ObjectVisualizer {
@@ -44,9 +44,13 @@ class ObjectVisualizer {
                             const ros::Publisher publisher);
   void PointCloudSave();
   void labelSave();
+  void StereoCloudSave();
   // Visualize image
   void ImageVisualizer(const std::string& file_prefix,
                        const ros::Publisher publisher);
+
+  void DepthImageVisualizer(const std::string& file_prefix,
+                            const ros::Publisher publisher);
 
   // Draw 2D bounding boxes in image
   void Draw2DBoundingBoxes(const std::string& file_prefix, cv::Mat& raw_image);
@@ -83,6 +87,7 @@ class ObjectVisualizer {
   ros::Publisher pub_point_cloud_;
   ros::Publisher pub_image_;
   ros::Publisher pub_bounding_boxes_;
+  ros::Publisher pub_depth_cloud_;
 
   // Object data path
   std::string data_path_;
@@ -91,7 +96,9 @@ class ObjectVisualizer {
   // Frame
   int frame_size_;
   int current_frame_;
+  bool show_depth_cloud_;
   bool save_image_;
+  bool save_stereo_cloud_;
 };
 
 }  // namespace kitti_visualizer
