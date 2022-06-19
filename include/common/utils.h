@@ -143,7 +143,7 @@ static void ReadCalibMatrix(const std::string &file_path,
         }
         trans_matrix(3, 3) = 1.0;
         return;
-      } else if (matrix_name == "Tr_velo_cam") {
+      } else if (matrix_name == "Tr_velo_to_cam_new:") {
         trans_matrix = Eigen::MatrixXd::Zero(4, 4);
         float temp_float;
         for (int i = 0; i < 3; ++i) {

@@ -42,7 +42,7 @@ ObjectVisualizer::ObjectVisualizer(ros::NodeHandle nh, ros::NodeHandle pnh)
   StereoCloudSave();
 
 //  PointCloudSave();
-//  labelSave();
+  labelSave();
 
 }
 
@@ -115,7 +115,7 @@ void ObjectVisualizer::PointCloudSave(){
        std::string calib_file_name =
                data_path_ + dataset_ + "/calib/" + file_prefix.str() + ".txt";
        Eigen::MatrixXd trans_velo_to_cam = Eigen::MatrixXd::Identity(4, 4);
-       ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam:", trans_velo_to_cam);
+       ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam_new:", trans_velo_to_cam);
        Eigen::MatrixXd trans_cam_to_rect = Eigen::MatrixXd::Identity(4, 4);
        ReadCalibMatrix(calib_file_name, "R0_rect:", trans_cam_to_rect);
        Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
@@ -146,44 +146,27 @@ void ObjectVisualizer::PointCloudSave(){
 };
 
 void ObjectVisualizer::labelSave() {
-    std::string calib_file_name =
-            data_path_ + dataset_ + "/calib/000000.txt";
-    Eigen::MatrixXd trans_velo_to_cam = Eigen::MatrixXd::Identity(4, 4);
-    ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam:", trans_velo_to_cam);
-    Eigen::MatrixXd trans_cam_to_rect = Eigen::MatrixXd::Identity(4, 4);
-    ReadCalibMatrix(calib_file_name, "R0_rect:", trans_cam_to_rect);
-    Eigen::Matrix4d trans_kitti_to_livox;
-    trans_kitti_to_livox <<
-            0.0, 0.0, -1.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            -1.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 1.0;
-    Eigen::Matrix4d  transform = trans_cam_to_rect*trans_velo_to_cam*trans_kitti_to_livox.inverse() * trans_velo_to_cam.inverse() *
-    trans_cam_to_rect.inverse();
+    std::string command;
+    command = "mkdir -p " + data_path_ + dataset_ + "/label_transform/";
+    system(command.c_str());
 
-    std::string file1 =
-            data_path_ + dataset_ + "/train.txt";
-    std::string file2 =
-            data_path_ + dataset_ + "/val.txt";
-    std::string file3 =
-            data_path_ + dataset_ + "/trainval.txt";
-    std::ofstream out1(file1.c_str(), std::ios::out | std::ios::app);
-    std::ofstream out2(file2.c_str(), std::ios::out | std::ios::app);
-    std::ofstream out3(file3.c_str(), std::ios::out | std::ios::app);
-    int id=0;
-    std::cout<<"transform:"<<transform<<std::endl;
     for (int i=0;i<frame_size_ ;i++) {
-        float height_offset = 0;
-        if(i<2500){
-            height_offset = i/500 * 5 + 10;
-        }else{
-            height_offset = (i - 2500) % 1500 / 300 * 5 + 10;
-        }
         std::ostringstream file_prefix;
         file_prefix << std::setfill('0') << std::setw(6) << i;
-        ROS_INFO("save lable frame %s ...hight:%f", file_prefix.str().c_str(),height_offset);
-        std::vector <std::vector<float>> detections = ParseDetections(file_prefix.str());
-        if(detections.size()==0){
+        ROS_INFO("save lable frame %s", file_prefix.str().c_str());
+        std::string calib_file_name =
+                data_path_ + dataset_ + "/calib/" + file_prefix.str() + ".txt";
+        Eigen::MatrixXd trans_velo_to_cam = Eigen::MatrixXd::Identity(4, 4);
+        ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam_new:", trans_velo_to_cam);
+        Eigen::MatrixXd trans_cam_to_rect = Eigen::MatrixXd::Identity(4, 4);
+        ReadCalibMatrix(calib_file_name, "R0_rect:", trans_cam_to_rect);
+        Eigen::MatrixXd trans_bev_to_ground = Eigen::MatrixXd::Identity(4, 4);
+        ReadCalibMatrix(calib_file_name, "TR_bev_to_ground:", trans_bev_to_ground);
+        Eigen::Matrix4d  transform = trans_cam_to_rect*trans_velo_to_cam*trans_bev_to_ground.inverse() * trans_velo_to_cam.inverse() *
+                                     trans_cam_to_rect.inverse();
+
+        std::vector<std::vector<float>> detections = ParseDetections(file_prefix.str());
+        if (detections.size() == 0) {
             std::string file_out =
                     data_path_ + dataset_ + "/label_transform/" + file_prefix.str() + ".txt";
             std::ofstream out(file_out.c_str(), std::ios::out | std::ios::app);
@@ -192,14 +175,7 @@ void ObjectVisualizer::labelSave() {
                 return;
             }
             continue;
-            //out << std::endl;
         }
-        if(id++%2==0){
-            out1 << file_prefix.str()<<std::endl;
-        }else{
-            out2 << file_prefix.str()<<std::endl;
-        }
-        out3 << file_prefix.str()<<std::endl;
         for (std::vector<float> detection : detections) {
             jsk_recognition_msgs::BoundingBox bounding_box;
             // Bounding box position
@@ -211,40 +187,39 @@ void ObjectVisualizer::labelSave() {
                 return;
             }
 
-            float size = detection[7] + detection[8] + detection[9];
             Eigen::Vector4d rect_position(detection[10], detection[11], detection[12],
                                           1.0);
-            if (size < 3.0) {
-                rect_position[0] = rect_position[0];
-                rect_position[1] = rect_position[1] - detection[7] / 2.0;//- 0.5;
-                rect_position[2] = rect_position[2] + detection[7] / 2.0 - height_offset;
-
-                rect_position = transform * rect_position;
-                out << "Pedestrian " << detection[0] << " " << detection[1] << " "
-                    << detection[2] << " " << detection[3] << " " << detection[4] << " "
-                    << detection[5] << " " << detection[6] << " " << detection[7] << " "
-                    << detection[8] << " " << detection[9] << " " << rect_position[0] << " "
-                    << rect_position[1] << " " << rect_position[2] << " " << detection[13] << std::endl;
-            } else if (size > 4.5) {
-                rect_position[0] = rect_position[0];
-                rect_position[1] = rect_position[1] - 0.5;//- 0.5;
-                rect_position[2] = rect_position[2] + detection[9] / 2 - height_offset;
-                rect_position = transform * rect_position;
-                out << "Car " << detection[0] << " " << detection[1] << " "
-                    << detection[2] << " " << detection[3] << " " << detection[4] << " "
-                    << detection[5] << " " << detection[6] << " " << detection[7] << " "
-                    << detection[8] << " " << detection[9] << " " << rect_position[0] << " "
-                    << rect_position[1] << " " << rect_position[2] << " " << detection[13] << std::endl;
-            } else {
-                rect_position[2] = rect_position[2] - height_offset;
-                rect_position = transform * rect_position;
-                out << "Bimo " << detection[0] << " " << detection[1] << " "
-                    << detection[2] << " " << detection[3] << " " << detection[4] << " "
-                    << detection[5] << " " << detection[6] << " " << detection[7] << " "
-                    << detection[8] << " " << detection[9] << " " << rect_position[0] << " "
-                    << rect_position[1] << " " << rect_position[2] << " " << detection[13] << std::endl;
+            rect_position = transform * rect_position;
+            std::string object_type;
+            if(detection.back() == 1.0) {
+                object_type = "Car";
+            }else if(detection.back() == 2.0) {
+                object_type = "Pedestrian";
+            }else if(detection.back() == 3.0) {
+                object_type = "Bimo";
+            }else if(detection.back() == 4.0) {
+                object_type = "Truck";
+            }else if(detection.back() == 5.0) {
+                object_type = "Minicar";
+            }else{
+                continue;
             }
-
+            out << object_type<<" "<< detection[0] << " " << detection[1] << " "
+                << detection[2] << " " << detection[3] << " " << detection[4] << " "
+                << detection[5] << " " << detection[6] << " " << detection[7] << " "
+                << detection[8] << " " << detection[9] << " " << rect_position[0] << " "
+                << rect_position[1] << " " << rect_position[2] << " " << detection[13] << std::endl;
+            std::ofstream out_calib(calib_file_name.c_str(), std::ios::out | std::ios::app);
+            if (!out_calib.good()) {
+                std::cout << "Couldn't open " << calib_file_name << std::endl;
+                return;
+            }
+            Eigen::Matrix4d  transform1 = trans_velo_to_cam*trans_bev_to_ground.inverse();
+            out_calib << "Tr_velo_to_cam_new_new: "
+                    << transform1(0,0)<<" "<< transform1(0,1)<<" "<< transform1(0,2)<<" "<< transform1(0,3)<<" "
+                    << transform1(1,0)<<" "<< transform1(1,1)<<" "<< transform1(1,2)<<" "<< transform1(1,3)<<" "
+                    << transform1(2,0)<<" "<< transform1(2,1)<<" "<< transform1(2,2)<<" "<< transform1(2,3)<< std::endl;
+            
         }
     }
 }
@@ -263,7 +238,7 @@ void ObjectVisualizer::StereoCloudSave(){
         std::string calib_file_name =
                 data_path_ + dataset_ + "/calib/" + file_prefix.str() + ".txt";
         Eigen::MatrixXd trans_velo_to_cam = Eigen::MatrixXd::Identity(4, 4);
-        ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam:", trans_velo_to_cam);
+        ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam_new:", trans_velo_to_cam);
         Eigen::MatrixXd trans_cam_to_rect = Eigen::MatrixXd::Identity(4, 4);
         ReadCalibMatrix(calib_file_name, "R0_rect:", trans_cam_to_rect);
         Eigen::MatrixXd trans_bev_to_ground = Eigen::MatrixXd::Identity(4, 4);
@@ -373,7 +348,7 @@ void ObjectVisualizer::DepthImageVisualizer(const std::string& file_prefix,
     std::string calib_file_name =
             data_path_ + dataset_ + "/calib/" + file_prefix + ".txt";
     Eigen::MatrixXd trans_velo_to_cam = Eigen::MatrixXd::Identity(4, 4);
-    ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam:", trans_velo_to_cam);
+    ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam_new:", trans_velo_to_cam);
     Eigen::MatrixXd trans_cam_to_rect = Eigen::MatrixXd::Identity(4, 4);
     ReadCalibMatrix(calib_file_name, "R0_rect:", trans_cam_to_rect);
     Eigen::MatrixXd trans_bev_to_ground = Eigen::MatrixXd::Identity(4, 4);
@@ -481,7 +456,7 @@ jsk_recognition_msgs::BoundingBoxArray ObjectVisualizer::TransformBoundingBoxes(
   std::string calib_file_name =
       data_path_ + dataset_ + "/calib/" + file_prefix + ".txt";
   Eigen::MatrixXd trans_velo_to_cam = Eigen::MatrixXd::Identity(4, 4);
-  ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam:", trans_velo_to_cam);
+  ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam_new:", trans_velo_to_cam);
   Eigen::MatrixXd trans_cam_to_rect = Eigen::MatrixXd::Identity(4, 4);
   ReadCalibMatrix(calib_file_name, "R0_rect:", trans_cam_to_rect);
 
@@ -541,8 +516,6 @@ std::vector<std::vector<float>> ObjectVisualizer::ParseDetections(
     // Parse object type
     std::string object_type;
     getline(line_ss, object_type, ' ');
-    if (object_type != "Car" && object_type != "Pedestrian" && object_type != "Vehicles" && object_type != "Bimo") continue;
-
     // Parse object data
     std::vector<float> detection;
     std::string str;
@@ -555,8 +528,10 @@ std::vector<std::vector<float>> ObjectVisualizer::ParseDetections(
         detection.push_back(2.0);
     }else if(object_type == "Bimo") {
         detection.push_back(3.0);
-    }else if(object_type == "Walkers") {
+    }else if(object_type == "Truck") {
         detection.push_back(4.0);
+    }else if(object_type == "Minicar") {
+        detection.push_back(5.0);
     }
     detections.push_back(detection);
   }
