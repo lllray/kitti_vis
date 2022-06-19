@@ -115,7 +115,7 @@ void ObjectVisualizer::PointCloudSave(){
        std::string calib_file_name =
                data_path_ + dataset_ + "/calib/" + file_prefix.str() + ".txt";
        Eigen::MatrixXd trans_velo_to_cam = Eigen::MatrixXd::Identity(4, 4);
-       ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam_new:", trans_velo_to_cam);
+       ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam:", trans_velo_to_cam);
        Eigen::MatrixXd trans_cam_to_rect = Eigen::MatrixXd::Identity(4, 4);
        ReadCalibMatrix(calib_file_name, "R0_rect:", trans_cam_to_rect);
        Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
@@ -157,7 +157,7 @@ void ObjectVisualizer::labelSave() {
         std::string calib_file_name =
                 data_path_ + dataset_ + "/calib/" + file_prefix.str() + ".txt";
         Eigen::MatrixXd trans_velo_to_cam = Eigen::MatrixXd::Identity(4, 4);
-        ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam_new:", trans_velo_to_cam);
+        ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam:", trans_velo_to_cam);
         Eigen::MatrixXd trans_cam_to_rect = Eigen::MatrixXd::Identity(4, 4);
         ReadCalibMatrix(calib_file_name, "R0_rect:", trans_cam_to_rect);
         Eigen::MatrixXd trans_bev_to_ground = Eigen::MatrixXd::Identity(4, 4);
@@ -209,18 +209,18 @@ void ObjectVisualizer::labelSave() {
                 << detection[5] << " " << detection[6] << " " << detection[7] << " "
                 << detection[8] << " " << detection[9] << " " << rect_position[0] << " "
                 << rect_position[1] << " " << rect_position[2] << " " << detection[13] << std::endl;
-            std::ofstream out_calib(calib_file_name.c_str(), std::ios::out | std::ios::app);
-            if (!out_calib.good()) {
-                std::cout << "Couldn't open " << calib_file_name << std::endl;
-                return;
-            }
-            Eigen::Matrix4d  transform1 = trans_velo_to_cam*trans_bev_to_ground.inverse();
-            out_calib << "Tr_velo_to_cam_new_new: "
-                    << transform1(0,0)<<" "<< transform1(0,1)<<" "<< transform1(0,2)<<" "<< transform1(0,3)<<" "
-                    << transform1(1,0)<<" "<< transform1(1,1)<<" "<< transform1(1,2)<<" "<< transform1(1,3)<<" "
-                    << transform1(2,0)<<" "<< transform1(2,1)<<" "<< transform1(2,2)<<" "<< transform1(2,3)<< std::endl;
-            
         }
+        std::ofstream out_calib(calib_file_name.c_str(), std::ios::out | std::ios::app);
+        if (!out_calib.good()) {
+            std::cout << "Couldn't open " << calib_file_name << std::endl;
+            return;
+        }
+        Eigen::Matrix4d  transform1 = trans_velo_to_cam*trans_bev_to_ground.inverse();
+        out_calib << "Tr_velo_to_cam_new: "
+                  << transform1(0,0)<<" "<< transform1(0,1)<<" "<< transform1(0,2)<<" "<< transform1(0,3)<<" "
+                  << transform1(1,0)<<" "<< transform1(1,1)<<" "<< transform1(1,2)<<" "<< transform1(1,3)<<" "
+                  << transform1(2,0)<<" "<< transform1(2,1)<<" "<< transform1(2,2)<<" "<< transform1(2,3)<< std::endl;
+
     }
 }
 
@@ -238,7 +238,7 @@ void ObjectVisualizer::StereoCloudSave(){
         std::string calib_file_name =
                 data_path_ + dataset_ + "/calib/" + file_prefix.str() + ".txt";
         Eigen::MatrixXd trans_velo_to_cam = Eigen::MatrixXd::Identity(4, 4);
-        ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam_new:", trans_velo_to_cam);
+        ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam:", trans_velo_to_cam);
         Eigen::MatrixXd trans_cam_to_rect = Eigen::MatrixXd::Identity(4, 4);
         ReadCalibMatrix(calib_file_name, "R0_rect:", trans_cam_to_rect);
         Eigen::MatrixXd trans_bev_to_ground = Eigen::MatrixXd::Identity(4, 4);
@@ -348,7 +348,7 @@ void ObjectVisualizer::DepthImageVisualizer(const std::string& file_prefix,
     std::string calib_file_name =
             data_path_ + dataset_ + "/calib/" + file_prefix + ".txt";
     Eigen::MatrixXd trans_velo_to_cam = Eigen::MatrixXd::Identity(4, 4);
-    ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam_new:", trans_velo_to_cam);
+    ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam:", trans_velo_to_cam);
     Eigen::MatrixXd trans_cam_to_rect = Eigen::MatrixXd::Identity(4, 4);
     ReadCalibMatrix(calib_file_name, "R0_rect:", trans_cam_to_rect);
     Eigen::MatrixXd trans_bev_to_ground = Eigen::MatrixXd::Identity(4, 4);
@@ -456,7 +456,7 @@ jsk_recognition_msgs::BoundingBoxArray ObjectVisualizer::TransformBoundingBoxes(
   std::string calib_file_name =
       data_path_ + dataset_ + "/calib/" + file_prefix + ".txt";
   Eigen::MatrixXd trans_velo_to_cam = Eigen::MatrixXd::Identity(4, 4);
-  ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam_new:", trans_velo_to_cam);
+  ReadCalibMatrix(calib_file_name, "Tr_velo_to_cam:", trans_velo_to_cam);
   Eigen::MatrixXd trans_cam_to_rect = Eigen::MatrixXd::Identity(4, 4);
   ReadCalibMatrix(calib_file_name, "R0_rect:", trans_cam_to_rect);
 
