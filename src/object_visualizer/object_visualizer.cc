@@ -149,6 +149,8 @@ void ObjectVisualizer::labelSave() {
     std::string command;
     command = "mkdir -p " + data_path_ + dataset_ + "/label_transform/";
     system(command.c_str());
+    command = "mkdir -p " + data_path_ + dataset_ + "/calib_transform/";
+    system(command.c_str());
 
     for (int i=0;i<frame_size_ ;i++) {
         std::ostringstream file_prefix;
@@ -210,17 +212,33 @@ void ObjectVisualizer::labelSave() {
                 << detection[8] << " " << detection[9] << " " << rect_position[0] << " "
                 << rect_position[1] << " " << rect_position[2] << " " << detection[13] << std::endl;
         }
-        std::ofstream out_calib(calib_file_name.c_str(), std::ios::out | std::ios::app);
+        std::string calib_out_file =
+                data_path_ + dataset_ + "/calib_transform/" + file_prefix.str() + ".txt";
+        std::ofstream out_calib(calib_out_file.c_str(), std::ios::out | std::ios::app);
         if (!out_calib.good()) {
             std::cout << "Couldn't open " << calib_file_name << std::endl;
             return;
         }
-        Eigen::Matrix4d  transform1 = trans_velo_to_cam*trans_bev_to_ground.inverse();
-        out_calib << "Tr_velo_to_cam_new: "
-                  << transform1(0,0)<<" "<< transform1(0,1)<<" "<< transform1(0,2)<<" "<< transform1(0,3)<<" "
-                  << transform1(1,0)<<" "<< transform1(1,1)<<" "<< transform1(1,2)<<" "<< transform1(1,3)<<" "
-                  << transform1(2,0)<<" "<< transform1(2,1)<<" "<< transform1(2,2)<<" "<< transform1(2,3)<< std::endl;
-
+        std::ifstream ifs(calib_file_name);
+        if (!ifs) {
+            ROS_ERROR("File %s does not exist", calib_file_name.c_str());
+            ros::shutdown();
+        }
+        std::string temp_str;
+        while (std::getline(ifs, temp_str)) {
+            std::istringstream iss(temp_str);
+            std::string name;
+            iss >> name;
+            if (name == "Tr_velo_to_cam:") {
+                Eigen::Matrix4d  transform1 = trans_velo_to_cam*trans_bev_to_ground.inverse();
+                out_calib << "Tr_velo_to_cam: "
+                          << transform1(0,0)<<" "<< transform1(0,1)<<" "<< transform1(0,2)<<" "<< transform1(0,3)<<" "
+                          << transform1(1,0)<<" "<< transform1(1,1)<<" "<< transform1(1,2)<<" "<< transform1(1,3)<<" "
+                          << transform1(2,0)<<" "<< transform1(2,1)<<" "<< transform1(2,2)<<" "<< transform1(2,3)<< std::endl;
+            }else{
+                out_calib << temp_str << std::endl;
+            }
+        }
     }
 }
 
