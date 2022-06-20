@@ -45,6 +45,7 @@ class ObjectVisualizer {
   void PointCloudSave();
   void labelSave();
   void StereoCloudSave();
+  void ChangeImageSets();
   // Visualize image
   void ImageVisualizer(const std::string& file_prefix,
                        const ros::Publisher publisher);

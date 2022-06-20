@@ -42,7 +42,8 @@ ObjectVisualizer::ObjectVisualizer(ros::NodeHandle nh, ros::NodeHandle pnh)
   StereoCloudSave();
 
 //  PointCloudSave();
-  labelSave();
+//  labelSave();
+    ChangeImageSets();
 
 }
 
@@ -238,6 +239,54 @@ void ObjectVisualizer::labelSave() {
             }else{
                 out_calib << temp_str << std::endl;
             }
+        }
+    }
+}
+
+void ObjectVisualizer::ChangeImageSets(){
+    std::string command;
+    command = "mkdir -p " + data_path_ + dataset_ + "/image_sets_20m/";
+    system(command.c_str());
+    for (int i=0;i<frame_size_;i++) {
+        // Read transform matrixs from calib file
+        std::ostringstream file_prefix;
+        file_prefix << std::setfill('0') << std::setw(6) << i;
+
+        std::string calib_file_name =
+                data_path_ + dataset_ + "/calib/" + file_prefix.str() + ".txt";
+        Eigen::MatrixXd trans_bev_to_ground = Eigen::MatrixXd::Identity(4, 4);
+        ReadCalibMatrix(calib_file_name, "TR_bev_to_ground:", trans_bev_to_ground);
+        float altitude = trans_bev_to_ground(2,3);
+        ROS_INFO("save stereo cloud frame %s altitude:%f", file_prefix.str().c_str(),altitude);
+        std::string train_file_out =
+                data_path_ + dataset_ + "/image_sets_20m/train.txt";
+        std::string val_file_out =
+                data_path_ + dataset_ + "/image_sets_20m/val.txt";
+        std::string trainval_file_out =
+                data_path_ + dataset_ + "/image_sets_20m/trainval.txt";
+
+        //Create & write .bin file
+        std::ofstream train_out(train_file_out.c_str(), std::ios::out | std::ios::binary | std::ios::app);
+        if (!train_out.good()) {
+            std::cout << "Couldn't open " << train_file_out << std::endl;
+            return;
+        }
+        std::ofstream val_out(val_file_out.c_str(), std::ios::out | std::ios::binary | std::ios::app);
+        if (!val_out.good()) {
+            std::cout << "Couldn't open " << val_file_out << std::endl;
+            return;
+        }
+        std::ofstream trainval_out(trainval_file_out.c_str(), std::ios::out | std::ios::binary | std::ios::app);
+        if (!trainval_out.good()) {
+            std::cout << "Couldn't open " << trainval_file_out << std::endl;
+            return;
+        }
+        if(altitude<=20){
+            if(i%2==0)
+                train_out << file_prefix.str()<<std::endl;
+            else
+                val_out << file_prefix.str()<<std::endl;
+            trainval_out << file_prefix.str()<<std::endl;
         }
     }
 }
