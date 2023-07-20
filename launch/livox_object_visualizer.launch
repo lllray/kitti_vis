@@ -1,5 +1,5 @@
 <launch>
-  <arg name="data_path" default="/media/lixin/7A255A482B58BC84/lx/CARLA_Shipping_my-0.9.13-3-g0aba485f0/LinuxNoEditor/PythonAPI/DataGenerator/data/22-06-09-stereo_test/"/>
+  <arg name="data_path" default="/media/lixin/7A255A482B58BC84/lx/CARLA_Shipping_my-0.9.13-3-g0aba485f0/LinuxNoEditor/PythonAPI/DataGenerator/data/test/"/>
   <arg name="dataset" default="training"/>22-05-22
   <arg name="frame_size" default="0"/>
   <arg name="current_frame" default="0"/>
